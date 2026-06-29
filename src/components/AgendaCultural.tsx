@@ -74,7 +74,8 @@ const ETIQUETA_AFINIDAD = { verde: "Muy afín", amarillo: "Interés medio", rojo
 const BANDERA = { España: "🇪🇸", Portugal: "🇵🇹" };
 const ETIQUETA_DIST = { local: "Cerca · Galicia", cerca: "Norte Portugal / Lisboa", lejos: "Lejos" };
 const CATEGORIAS = ["concierto", "festival", "cine", "charla", "humor", "otro"];
-const ICONO_CAT = { concierto: "🎵", festival: "🎪", cine: "🎬", charla: "🎙️", humor: "😄", otro: "✨" };
+const CATEGORIAS_LOCAL = ["concierto", "festival", "cine", "charla", "teatro", "expo", "mercadillo", "otro"];
+const ICONO_CAT = { concierto: "🎵", festival: "🎪", cine: "🎬", charla: "🎙️", humor: "😄", otro: "✨", teatro: "🎭", expo: "🖼️", mercadillo: "🛒" };
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const DIAS_SEM = ["L", "M", "X", "J", "V", "S", "D"];
 
@@ -121,6 +122,41 @@ function googleCalUrl(e) {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${titulo}&dates=${inicio.replace(/[-:]/g, "")}/${fin.replace(/[-:]/g, "")}&details=${desc}`;
 }
 
+const SYSTEM_PROMPT_LOCAL = `Eres un buscador de eventos locales de Vigo y alrededores. Tu tarea: usar la herramienta de búsqueda web para encontrar TODOS los eventos reales y próximos en Vigo, Pontevedra provincia y alrededores (próximos 7-14 días), sin ningún filtro de perfil personal.
+
+== ÁMBITO GEOGRÁFICO ==
+Primario: Vigo ciudad + Pontevedra provincia.
+Secundario: Cangas, Redondela, Baiona, Marín, Moaña, Bajamar, Beade, Barro, Arcade.
+Horizonte temporal: Hoy + próximos 7-14 días (NO meses).
+
+== FUENTES OBLIGATORIAS ==
+Busca exhaustivamente en TODAS estas fuentes:
+1. hoxe.vigo.org — Agenda oficial de Vigo
+2. viralagenda.com — Eventos Galicia
+3. metropolitano.gal — Agenda Metropolitana de Vigo
+4. lovingvigo.com — Eventos Vigo
+5. Webs propias de espacios: Auditorio Mar de Vigo, Teatro Afundación, Sala Sinatras, La Fábrica de Chocolate, Master Club, Contrabaixo, MARCO, Casa das Artes, Castrelos
+
+== QUÉ INCLUIR (TODO) ==
+Conciertos y recitales (pequeños y grandes), festivales, cine (cineclub, estrenos), teatro, danza, charlas, exposiciones, ferias, mercadillos, festividades de barrio, jam sessions, open mics, actividades comunitarias.
+Busca activamente eventos pequeños con poca visibilidad online.
+
+== FORMATO DE SALIDA (OBLIGATORIO) ==
+Responde ÚNICAMENTE con un array JSON válido, sin texto antes ni después, sin markdown ni \`\`\`. Cada evento:
+{
+  "nombre": "string",
+  "fecha": "YYYY-MM-DD",
+  "hora": "HH:MM o vacío",
+  "sala": "nombre del recinto o ubicación",
+  "ciudad": "Vigo|Pontevedra|Cangas|Redondela|etc",
+  "pais": "España",
+  "precio": "Gratis, 5€, o vacío",
+  "enlace": "URL o vacío",
+  "categoria": "concierto|festival|cine|charla|teatro|expo|mercadillo|otro",
+  "razon": "1 frase: qué tipo de evento es"
+}
+Prioriza verificación sobre cantidad — mejor 10 reales que 20 especulativos. La fecha debe ser concreta (YYYY-MM-DD). Entre 5 y 25 eventos. Si no encuentras, devuelve [].`;
+
 // Main Component
 export default function AgendaCultural() {
   const [eventos, setEventos] = useState([]);
@@ -133,6 +169,11 @@ export default function AgendaCultural() {
   const [afinidadFil, setAfinidadFil] = useState(new Set(["verde", "amarillo", "rojo"]));
   const [categoriaFil, setCategoriaFil] = useState(new Set(CATEGORIAS));
   const eventosRef = useRef([]);
+
+  // Agenda Local state (completely independent)
+  const [eventosLocales, setEventosLocales] = useState([]);
+  const [cargandoLocal, setCargandoLocal] = useState(false);
+  const [categoriaFilLocal, setCategoriaFilLocal] = useState(new Set(CATEGORIAS_LOCAL));
 
   // API Call
   const buscar = useCallback(async () => {
@@ -201,6 +242,38 @@ export default function AgendaCultural() {
   useEffect(() => {
     buscar();
   }, [buscar]);
+
+  const buscarLocal = useCallback(async () => {
+    setCargandoLocal(true);
+    try {
+      const response = await fetch("/api/anthropic/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 3000,
+          messages: [{ role: "user", content: "Busca todos los eventos culturales en Vigo y alrededores para los próximos 7-14 días." }],
+          system: SYSTEM_PROMPT_LOCAL,
+          tools: [{ type: "web_search_20250305", name: "web_search" }],
+        }),
+      });
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      const data = await response.json();
+      let eventosJSON = [];
+      for (const block of data.content || []) {
+        if (block.type === "text") {
+          const parsed = extraerJSON(block.text);
+          if (Array.isArray(parsed)) { eventosJSON = parsed; break; }
+        }
+      }
+      setEventosLocales((eventosJSON || []).map((e) => ({ ...e, id: hashId(e) })));
+    } catch (err) {
+      console.error("Error Agenda Local:", err);
+      alert("Error al buscar eventos locales. Verifica tu API key.");
+    } finally {
+      setCargandoLocal(false);
+    }
+  }, []);
 
   // Filtering
   const visibles = eventos.filter((e) => afinidadFil.has(e.afinidad) && categoriaFil.has(e.categoria));
@@ -285,59 +358,117 @@ export default function AgendaCultural() {
             >
               📋 Lista
             </button>
+            {vista !== "local" && (
+              <button
+                onClick={buscar}
+                disabled={cargando}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: `1px solid ${cargando ? "#d8d2c8" : ACENTO}`,
+                  background: cargando ? "#f0eee9" : ACENTO,
+                  color: cargando ? "#9a9088" : "#fff",
+                  cursor: cargando ? "default" : "pointer",
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
+              >
+                {cargando ? "Buscando..." : "🔄 Buscar"}
+              </button>
+            )}
+            {vista === "local" && (
+              <button
+                onClick={buscarLocal}
+                disabled={cargandoLocal}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: 6,
+                  border: `1px solid ${cargandoLocal ? "#d8d2c8" : "#4a7a5a"}`,
+                  background: cargandoLocal ? "#f0eee9" : "#4a7a5a",
+                  color: cargandoLocal ? "#9a9088" : "#fff",
+                  cursor: cargandoLocal ? "default" : "pointer",
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
+              >
+                {cargandoLocal ? "Buscando..." : "📍 Buscar Agenda Local"}
+              </button>
+            )}
             <button
-              onClick={buscar}
-              disabled={cargando}
+              onClick={() => setVista("local")}
               style={{
                 padding: "8px 14px",
                 borderRadius: 6,
-                border: `1px solid ${cargando ? "#d8d2c8" : ACENTO}`,
-                background: cargando ? "#f0eee9" : ACENTO,
-                color: cargando ? "#9a9088" : "#fff",
-                cursor: cargando ? "default" : "pointer",
+                border: vista === "local" ? "2px solid #4a7a5a" : "1px solid #d8d2c8",
+                background: vista === "local" ? "#4a7a5a" : "#fff",
+                color: vista === "local" ? "#fff" : "#5a5249",
+                cursor: "pointer",
                 fontSize: 13,
                 fontWeight: 500,
               }}
             >
-              {cargando ? "Buscando..." : "🔄 Buscar"}
+              📍 Agenda Local
             </button>
           </div>
 
-          {/* Filters */}
-          <Fila titulo="Afinidad">
-            {["verde", "amarillo", "rojo"].map((a) => (
-              <Chip
-                key={a}
-                activo={afinidadFil.has(a)}
-                color={COLOR_AFINIDAD[a]}
-                onClick={() => {
-                  const newSet = new Set(afinidadFil);
-                  if (newSet.has(a)) newSet.delete(a);
-                  else newSet.add(a);
-                  setAfinidadFil(newSet);
-                }}
-              >
-                {ETIQUETA_AFINIDAD[a]}
-              </Chip>
-            ))}
-          </Fila>
+          {/* Filters — main search */}
+          {vista !== "local" && (
+            <>
+              <Fila titulo="Afinidad">
+                {["verde", "amarillo", "rojo"].map((a) => (
+                  <Chip
+                    key={a}
+                    activo={afinidadFil.has(a)}
+                    color={COLOR_AFINIDAD[a]}
+                    onClick={() => {
+                      const newSet = new Set(afinidadFil);
+                      if (newSet.has(a)) newSet.delete(a);
+                      else newSet.add(a);
+                      setAfinidadFil(newSet);
+                    }}
+                  >
+                    {ETIQUETA_AFINIDAD[a]}
+                  </Chip>
+                ))}
+              </Fila>
+              <Fila titulo="Categoría">
+                {CATEGORIAS.map((c) => (
+                  <Chip
+                    key={c}
+                    activo={categoriaFil.has(c)}
+                    onClick={() => {
+                      const newSet = new Set(categoriaFil);
+                      if (newSet.has(c)) newSet.delete(c);
+                      else newSet.add(c);
+                      setCategoriaFil(newSet);
+                    }}
+                  >
+                    {ICONO_CAT[c]} {c}
+                  </Chip>
+                ))}
+              </Fila>
+            </>
+          )}
 
-          <Fila titulo="Categoría">
-            {CATEGORIAS.map((c) => (
-              <Chip
-                key={c}
-                activo={categoriaFil.has(c)}
-                onClick={() => {
-                  const newSet = new Set(categoriaFil);
-                  if (newSet.has(c)) newSet.delete(c);
-                  else newSet.add(c);
-                  setCategoriaFil(newSet);
-                }}
-              >
-                {ICONO_CAT[c]} {c}
-              </Chip>
-            ))}
-          </Fila>
+          {/* Filters — Agenda Local */}
+          {vista === "local" && (
+            <Fila titulo="Categoría">
+              {CATEGORIAS_LOCAL.map((c) => (
+                <Chip
+                  key={c}
+                  activo={categoriaFilLocal.has(c)}
+                  onClick={() => {
+                    const newSet = new Set(categoriaFilLocal);
+                    if (newSet.has(c)) newSet.delete(c);
+                    else newSet.add(c);
+                    setCategoriaFilLocal(newSet);
+                  }}
+                >
+                  {ICONO_CAT[c]} {c}
+                </Chip>
+              ))}
+            </Fila>
+          )}
         </div>
 
         {/* Novedades Badge */}
@@ -484,6 +615,41 @@ export default function AgendaCultural() {
             )}
           </div>
         )}
+
+        {/* Agenda Local View */}
+        {vista === "local" && (
+          <div>
+            {eventosLocales.length === 0 && !cargandoLocal && (
+              <div style={{ textAlign: "center", color: "#9a9088", padding: "40px 20px" }}>
+                <p style={{ fontSize: 15, marginBottom: 8 }}>📍 Agenda Local — Vigo y alrededores</p>
+                <p style={{ fontSize: 13 }}>Haz clic en "Buscar Agenda Local" para encontrar eventos de los próximos 7-14 días.</p>
+              </div>
+            )}
+            {cargandoLocal && (
+              <div style={{ textAlign: "center", color: "#9a9088", padding: "40px 20px", fontSize: 14 }}>
+                Buscando eventos locales en Vigo...
+              </div>
+            )}
+            {eventosLocales.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+                {[...eventosLocales]
+                  .filter((e) => categoriaFilLocal.has(e.categoria))
+                  .sort((a, b) => (a.fecha || "9999").localeCompare(b.fecha || "9999"))
+                  .map((e) => (
+                    <TarjetaEvento
+                      key={e.id}
+                      e={{ ...e, afinidad: "local" }}
+                      esNuevo={false}
+                      onQuitar={() => setEventosLocales((prev) => prev.filter((ev) => ev.id !== e.id))}
+                    />
+                  ))}
+                {eventosLocales.filter((e) => categoriaFilLocal.has(e.categoria)).length === 0 && (
+                  <p style={{ color: "#9a9088", fontStyle: "italic", textAlign: "center" }}>Ningún evento con estos filtros.</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -530,7 +696,7 @@ function TarjetaEvento({ e, onQuitar, esNuevo }) {
   const BANDERA = { España: "🇪🇸", Portugal: "🇵🇹" };
   const ACENTO = "#7a4a10";
 
-  const color = COLOR_AFINIDAD[e.afinidad] || "#999";
+  const color = COLOR_AFINIDAD[e.afinidad] || "#6a8a7a";
 
   return (
     <article
