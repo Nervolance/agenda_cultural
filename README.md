@@ -53,3 +53,23 @@ La API key nunca llega al browser. El dev server de Vite actúa como proxy: las 
 | `npm run dev` | Dev server con hot reload |
 | `npm run build` | Build de producción |
 | `npm run preview` | Preview del build |
+
+## Flujo de trabajo Git
+
+Dos ramas permanentes:
+
+- **`main`**: rama estable. Solo recibe merges desde `dev` una vez verificado.
+- **`dev`**: rama de trabajo diario. Todos los cambios van aquí primero.
+
+```bash
+# Trabajar en dev (rama habitual)
+git checkout dev
+
+# Cuando los cambios están listos, mergear a main
+git checkout main
+git merge dev --no-ff
+git push origin main
+git checkout dev
+```
+
+Para proteger `main` en GitHub: Settings → Branches → Add rule → `main` → activar *Require a pull request before merging*.
