@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agenda Cultural de Rodrigo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f0eee9; font-family: system-ui, sans-serif; min-height: 100vh; padding: 20px; }
+
+    /* Layout */
+    .wrapper  { max-width: 1200px; margin: 0 auto; }
+    .header   { margin-bottom: 30px; }
+    .header h1 { font-family: 'Lora', serif; font-size: 28px; font-weight: 700; color: #2a2420; margin-bottom: 6px; }
+    .header p  { color: #6b635a; font-size: 14px; }
+
+    /* Panel de controles */
+    .panel     { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(60,50,40,0.06); }
+    .tabs      { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+
+    /* API key */
+    .api-row   { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .api-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px; color: #a59a8d; text-transform: uppercase; white-space: nowrap; }
+    .api-input { flex: 1; min-width: 220px; padding: 6px 10px; border: 1px solid #d8d2c8; border-radius: 6px; font-size: 12px; font-family: 'DM Mono', monospace; color: #5a5249; background: #faf8f5; }
+
+    /* Botones */
+    .btn        { padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid #d8d2c8; background: #fff; color: #5a5249; }
+    .btn:disabled { opacity: 0.6; cursor: default; }
+    .btn-main   { border-color: #7a4a10; background: #7a4a10; color: #fff; }
+    .btn-main:disabled { background: #f0eee9; border-color: #d8d2c8; color: #9a9088; }
+    .btn-local  { border-color: #4a7a5a; background: #4a7a5a; color: #fff; }
+    .btn-local:disabled { background: #f0eee9; border-color: #d8d2c8; color: #9a9088; }
+    .btn-mock   { border-color: #8a7a6a; color: #8a7a6a; font-size: 12px; }
+
+    /* Filtros */
+    .fila        { margin-bottom: 8px; }
+    .fila-titulo { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 1.5px; color: #a59a8d; text-transform: uppercase; margin-bottom: 6px; }
+    .fila-chips  { display: flex; gap: 7px; flex-wrap: wrap; }
+    .chip        { border: 1px solid #d8d2c8; background: #fff; color: #5a5249; border-radius: 20px; padding: 5px 13px; font-size: 12.5px; cursor: pointer; text-transform: capitalize; }
+
+    /* Novedades */
+    .novedades { background: #5a7d4f; color: #fff; border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 13px; text-align: center; }
+
+    /* Calendario */
+    .cal-card   { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(60,50,40,0.06); }
+    .cal-title  { font-family: 'Lora', serif; font-size: 18px; font-weight: 600; margin-bottom: 16px; text-transform: capitalize; }
+    .cal-grid   { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 16px; }
+    .cal-dow    { text-align: center; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; color: #a59a8d; text-transform: uppercase; margin-bottom: 8px; }
+    .cal-day    { min-height: 72px; background: #fff; border-radius: 8px; border: 1px solid #ece7df; padding: 4px; overflow: hidden; }
+    .cal-day.otro-mes   { background: #f6f3ed; opacity: 0.55; }
+    .cal-day.es-hoy     { border: 2px solid #d8c4a6; }
+    .cal-day.sel        { border: 2px solid #7a4a10; }
+    .cal-day.clickable  { cursor: pointer; }
+    .cal-num     { font-family: 'DM Mono', monospace; font-size: 11.5px; text-align: right; color: #9a9088; padding: 1px 3px; }
+    .cal-num.hoy { color: #7a4a10; font-weight: 600; }
+    .cal-chip   { color: #fff; border-radius: 4px; font-size: 9.5px; padding: 2px 4px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; cursor: pointer; }
+    .cal-mas    { font-size: 9.5px; color: #998f82; margin-top: 2px; padding-left: 3px; font-family: 'DM Mono', monospace; }
+    .cal-legend { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+    .cal-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #6b635a; font-family: 'DM Mono', monospace; }
+    .cal-legend-dot  { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+    /* Panel detalle */
+    .detalle        { margin-top: 18px; }
+    .detalle-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .detalle-title  { font-family: 'Lora', serif; font-size: 17px; font-weight: 600; text-transform: capitalize; }
+    .btn-cerrar     { background: none; border: none; color: #7a4a10; cursor: pointer; font-size: 13px; }
+    .detalle-lista  { display: flex; flex-direction: column; gap: 12px; }
+
+    /* Tarjeta */
+    .tarjeta        { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(60,50,40,0.08); border: 1px solid #ece7df; position: relative; }
+    .tarjeta-barra  { height: 3px; }
+    .tarjeta-quitar { position: absolute; top: 12px; right: 12px; width: 26px; height: 26px; border-radius: 50%; border: none; background: #f3efe8; color: #998f82; cursor: pointer; font-size: 15px; line-height: 1; }
+    .tarjeta-body   { padding: 16px 18px; }
+    .tarjeta-meta   { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+    .tarjeta-cat    { font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; font-weight: 500; }
+    .tarjeta-dist   { font-family: 'DM Mono', monospace; font-size: 10.5px; color: #b0a698; }
+    .tarjeta-nuevo  { background: #5a7d4f; color: #fff; font-size: 9.5px; font-weight: 700; border-radius: 4px; padding: 2px 6px; letter-spacing: 0.5px; }
+    .tarjeta-nombre { font-family: 'Lora', serif; font-size: 20px; font-weight: 600; margin: 0 0 8px; padding-right: 24px; line-height: 1.2; }
+    .tarjeta-info   { font-family: 'DM Mono', monospace; font-size: 12.5px; color: #5a5249; line-height: 1.7; }
+    .tarjeta-razon  { font-size: 13.5px; color: #6b635a; font-style: italic; margin: 10px 0 0; line-height: 1.5; padding-left: 10px; }
+    .tarjeta-links  { display: flex; gap: 14px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+    .tarjeta-link   { font-size: 13px; text-decoration: none; font-weight: 600; }
+
+    /* Lista */
+    .lista  { display: flex; flex-direction: column; gap: 13px; }
+
+    /* Estados vacíos */
+    .empty      { text-align: center; color: #9a9088; padding: 40px 20px; }
+    .empty p    { font-size: 14px; }
+    .empty p+p  { font-size: 13px; margin-top: 8px; }
+    .italic     { font-style: italic; text-align: center; color: #9a9088; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+
+// ─── CONSTANTES ───────────────────────────────────────────────────────────────
+
+const ACENTO = '#7a4a10';
+const COLOR_AFINIDAD = { verde:'#5a7d4f', amarillo:'#c9962e', rojo:'#b15436', local:'#6a8a7a' };
+const ETIQUETA_AFINIDAD = { verde:'Muy afín', amarillo:'Interés medio', rojo:'Quizá' };
+const BANDERA = { España:'🇪🇸', Portugal:'🇵🇹' };
+const ETIQUETA_DIST = { local:'Cerca · Galicia', cerca:'Norte Portugal / Lisboa', lejos:'Lejos' };
+const CATEGORIAS = ['concierto','festival','cine','charla','humor','otro'];
+const CATEGORIAS_LOCAL = ['concierto','festival','cine','charla','teatro','expo','mercadillo','otro'];
+const ICONO_CAT = { concierto:'🎵', festival:'🎪', cine:'🎬', charla:'🎙️', humor:'😄', otro:'✨', teatro:'🎭', expo:'🖼️', mercadillo:'🛒' };
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DIAS_SEM = ['L','M','X','J','V','S','D'];
+
+// ─── SYSTEM PROMPTS ───────────────────────────────────────────────────────────
+
+const TOP_ARTISTAS = `Hermanos Gutiérrez, Ocie Elliott, World/Inferno Friendship Society, Yom, Kerala Dust, Tunng, Takeshi's Cashew, Kevin Morby, El Búho, Abraham Cupeiro, islandman, Roseaux, Quantic, Kevin Kaarl, BCUC, Khruangbin, Krishna Das, AURORA, Chancha Via Circuito, Sleaford Mods, The Trials of Cato, Yin Yin, Amadou & Mariam, Barry Can't Swim, Nicola Cruz, Tinariwen, José González, Fela Kuti, Maribou State, Nils Frahm, GoGo Penguin, Sangre de Muerdago, DakhaBrakha, Baiuca, Califato ¾, Viken Arman`;
+const SEGUIDOS = `AURORA, Abraham Cupeiro, Aliboria, Baiuca, Barry Can't Swim, Bon Iver, Califato ¾, Cameron Winter, El Búho, Hermanos Gutiérrez, Kerala Dust, Kevin Kaarl, Kevin Morby, Khruangbin, Nicola Cruz, Ocie Elliott, Sangre de Muerdago, Sleaford Mods, Takeshi's Cashew, The Trials of Cato, Yin Yin, Yom`;
+const AFRICANOS = `Mdou Moctar, Songhoy Blues, Fatoumata Diawara, Seckou Keita, Sons of Kemet, Oumou Sangaré`;
+const HUMOR = `La Ruina, Pantomima Full, David Suárez, stand-up de calidad, humor absurdo`;
+
+const SYSTEM_PROMPT = `Eres el asistente personal de agenda cultural de Rodrigo (Vigo, Galicia). Tu tarea: usar la herramienta de búsqueda web para encontrar EVENTOS CULTURALES REALES Y FUTUROS relevantes para su perfil, y devolverlos como JSON.
+
+== PERFIL MUSICAL ==
+Artistas que SIGUE (máxima afinidad): ${SEGUIDOS}
+Top artistas escuchados (alta afinidad): ${TOP_ARTISTAS}
+Géneros: world music global, folk/indie folk, electrónica orgánica/downtempo, música gallega y tradicional, ambient, psicodelia, klezmer.
+Africanos que SÍ le interesan EN DIRECTO: ${AFRICANOS}.
+
+== PERFIL CINE/CULTURA ==
+Cine de autor europeo (Sorrentino, Gaspar Noé), sátira política (Sí Ministro, Succession), filosofía/psicodelia/micología, documentales (Searching for Sugar Man, Fantastic Fungi).
+Humor/stand-up: ${HUMOR}. Cines de Vigo: Multicines Norte, Ocine Gran Vía, Yelmo Travesía, Cines Tamberlick.
+
+== ÁMBITO GEOGRÁFICO ==
+- Vigo y Galicia → distancia "local". SIEMPRE relevante.
+- Norte de Portugal (Porto, Braga, Viana) → "cerca". Solo música/festivales.
+- Lisboa → "cerca". Solo alta afinidad musical.
+- Madrid/Barcelona → "lejos". Solo muy alta afinidad.
+
+== ESPACIOS DE VIGO ==
+Auditorio Mar de Vigo, Teatro Afundación, Sala Sinatras, La Fábrica de Chocolate, Master Club, Contrabaixo, MARCO, Casa das Artes, Castrelos, Cineclube de Vigo, y cualquier otra sala o espacio cultural.
+
+== CLASIFICACIÓN ==
+- "verde": artista seguido o top, festival muy afín, Galicia.
+- "amarillo": artista relacionado, interés medio, o top pero lejos.
+- "rojo": afinidad baja o muy lejos, pero podría valer.
+
+== FORMATO (OBLIGATORIO) ==
+Responde ÚNICAMENTE con un array JSON válido, sin texto ni markdown. Cada evento:
+{"nombre":"string","fecha":"YYYY-MM-DD","hora":"HH:MM o vacío","sala":"string","ciudad":"string","pais":"España|Portugal","precio":"string o vacío","enlace":"URL o vacío","categoria":"concierto|festival|cine|charla|humor|otro","afinidad":"verde|amarillo|rojo","distancia":"local|cerca|lejos","razon":"1 frase"}
+Entre 8 y 18 eventos reales verificados. Si no encuentras, devuelve [].`;
+
+const SYSTEM_PROMPT_LOCAL = `Eres un buscador de eventos locales de Vigo y alrededores. Usa la herramienta de búsqueda web para encontrar TODOS los eventos reales y próximos (próximos 7-14 días) sin filtro de perfil.
+
+== ÁMBITO ==
+Primario: Vigo ciudad + Pontevedra provincia.
+Secundario: Cangas, Redondela, Baiona, Marín, Moaña.
+Horizonte temporal: Hoy + próximos 7-14 días (NO meses).
+
+== FUENTES OBLIGATORIAS ==
+hoxe.vigo.org, viralagenda.com, metropolitano.gal, lovingvigo.com, webs propias de salas (Mar de Vigo, Afundación, Sinatras, MARCO, Castrelos, Fábrica de Chocolate).
+
+== QUÉ INCLUIR ==
+Todo: conciertos, festivales, cine, teatro, danza, charlas, exposiciones, ferias, mercadillos, jam sessions, open mics, actividades comunitarias. Busca activamente eventos pequeños con poca visibilidad.
+
+== FORMATO (OBLIGATORIO) ==
+Responde ÚNICAMENTE con un array JSON válido, sin texto ni markdown:
+{"nombre":"string","fecha":"YYYY-MM-DD","hora":"HH:MM o vacío","sala":"string","ciudad":"Vigo|Pontevedra|Cangas|etc","pais":"España","precio":"string o vacío","enlace":"URL o vacío","categoria":"concierto|festival|cine|charla|teatro|expo|mercadillo|otro","razon":"1 frase"}
+Entre 5 y 25 eventos reales. Si no encuentras, devuelve [].`;
+
+// ─── DATOS MOCK (para iterar el UI sin API) ───────────────────────────────────
+
+const MOCK_EVENTOS = [
+  { nombre:'Hermanos Gutiérrez', fecha:'2026-07-05', hora:'20:30', sala:'Auditorio Mar de Vigo', ciudad:'Vigo', pais:'España', precio:'25 €', enlace:'', categoria:'concierto', afinidad:'verde', distancia:'local', razon:'Dúo de guitarra acústica favorito — folk latinoamericano de altísima afinidad' },
+  { nombre:'Baiuca', fecha:'2026-07-12', hora:'21:00', sala:'Sala Sinatras', ciudad:'Vigo', pais:'España', precio:'15 €', enlace:'', categoria:'concierto', afinidad:'verde', distancia:'local', razon:'Electrónica gallega, artista seguido' },
+  { nombre:'Fantastic Fungi (documental)', fecha:'2026-07-08', hora:'19:00', sala:'Cineclube de Vigo', ciudad:'Vigo', pais:'España', precio:'Gratis', enlace:'', categoria:'cine', afinidad:'verde', distancia:'local', razon:'Documental de micología — exactamente sus intereses' },
+  { nombre:'Kerala Dust', fecha:'2026-07-19', hora:'20:00', sala:'Teatro Afundación', ciudad:'Vigo', pais:'España', precio:'18 €', enlace:'', categoria:'concierto', afinidad:'verde', distancia:'local', razon:'Indie folk oscuro, artista muy seguido' },
+  { nombre:'Califato ¾', fecha:'2026-07-30', hora:'20:30', sala:'La Fábrica de Chocolate', ciudad:'Vigo', pais:'España', precio:'12 €', enlace:'', categoria:'concierto', afinidad:'verde', distancia:'local', razon:'Flamenco electrónico gallego, artista seguido' },
+  { nombre:'David Suárez — Stand Up', fecha:'2026-07-25', hora:'21:30', sala:'Teatro Afundación', ciudad:'Vigo', pais:'España', precio:'20 €', enlace:'', categoria:'humor', afinidad:'verde', distancia:'local', razon:'Referente de stand-up en su lista' },
+  { nombre:'O Son do Camiño', fecha:'2026-07-17', hora:'', sala:'Monte do Gozo', ciudad:'Santiago de Compostela', pais:'España', precio:'85 € (abono)', enlace:'', categoria:'festival', afinidad:'amarillo', distancia:'local', razon:'Festival gallego con cartel afín, a 1h de Vigo' },
+  { nombre:'Khruangbin', fecha:'2026-08-02', hora:'21:00', sala:'NOS Alive (recinto por confirmar)', ciudad:'Porto', pais:'Portugal', precio:'35 €', enlace:'', categoria:'concierto', afinidad:'verde', distancia:'cerca', razon:'Artista favorito — merece el viaje a Porto' },
+  { nombre:'GoGo Penguin', fecha:'2026-08-15', hora:'21:00', sala:'Palau de la Música', ciudad:'Barcelona', pais:'España', precio:'30 €', enlace:'', categoria:'concierto', afinidad:'amarillo', distancia:'lejos', razon:'Jazz electrónico de alta afinidad, pero Barcelona es lejos' },
+  { nombre:'Charla: Etnobotánica y plantas medicinales', fecha:'2026-07-09', hora:'19:00', sala:'MARCO', ciudad:'Vigo', pais:'España', precio:'Gratis', enlace:'', categoria:'charla', afinidad:'amarillo', distancia:'local', razon:'Conecta con sus intereses en plantas y consciencia' },
+];
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+
+function hashId(e) {
+  const base = `${(e.nombre||'').toLowerCase()}|${e.fecha||''}|${(e.sala||'').toLowerCase()}`;
+  let h = 0;
+  for (let i = 0; i < base.length; i++) { h = (h << 5) - h + base.charCodeAt(i); h |= 0; }
+  return 'ev' + Math.abs(h).toString(36);
+}
+
+function extraerJSON(texto) {
+  if (!texto) return null;
+  const limpio = texto.replace(/```json/gi,'').replace(/```/g,'').trim();
+  const ini = limpio.indexOf('['), fin = limpio.lastIndexOf(']');
+  if (ini === -1 || fin === -1 || fin <= ini) return null;
+  try { return JSON.parse(limpio.slice(ini, fin + 1)); } catch { return null; }
+}
+
+function formatearFecha(iso) {
+  if (!iso) return 'Fecha por confirmar';
+  const d = new Date(iso + 'T00:00:00');
+  return `${DIAS_SEM[(d.getDay()+6)%7]} ${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function googleCalUrl(e) {
+  if (!e.fecha) return null;
+  const inicio = e.hora ? `${e.fecha}T${e.hora}:00` : `${e.fecha}T00:00:00`;
+  const fin = e.hora
+    ? `${e.fecha}T${String(parseInt(e.hora.split(':')[0])+2).padStart(2,'0')}:00:00`
+    : `${e.fecha}T23:59:59`;
+  const t = encodeURIComponent(`${e.nombre} @ ${e.sala||e.ciudad}`);
+  const d = encodeURIComponent(`${e.sala||''} ${e.ciudad||''}`);
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${t}&dates=${inicio.replace(/[-:]/g,'')}/${fin.replace(/[-:]/g,'')}&details=${d}`;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getApiKey() {
+  return (document.getElementById('api-key') || {value:''}).value
+    || localStorage.getItem('ac_apikey')
+    || '';
+}
+
+// ─── ESTADO ───────────────────────────────────────────────────────────────────
+
+const state = {
+  eventos: [],
+  eventosLocales: [],
+  vista: 'calendario',
+  diaSel: null,
+  eventoSel: null,
+  cargando: false,
+  cargandoLocal: false,
+  afinidadFil: new Set(['verde','amarillo','rojo']),
+  categoriaFil: new Set(CATEGORIAS),
+  categoriaFilLocal: new Set(CATEGORIAS_LOCAL),
+  novedadesSet: new Set(),
+  prevIds: new Set(),
+};
+
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem('ac_eventos');
+    if (saved) {
+      state.eventos = JSON.parse(saved);
+      state.prevIds = new Set(state.eventos.map(e => e.id));
+    }
+  } catch {}
+}
+
+function saveToStorage() {
+  localStorage.setItem('ac_eventos', JSON.stringify(state.eventos));
+}
+
+function setState(patch) {
+  Object.assign(state, patch);
+  if ('eventos' in patch) saveToStorage();
+  render();
+}
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+
+async function llamarAPI(system, userMsg) {
+  const apiKey = getApiKey();
+  if (!apiKey) { alert('Introduce tu API key de Anthropic en el campo de arriba.'); return []; }
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 3000,
+      system,
+      messages: [{ role:'user', content: userMsg }],
+      tools: [{ type:'web_search_20250305', name:'web_search' }],
+    }),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const data = await res.json();
+  for (const block of data.content || []) {
+    if (block.type === 'text') {
+      const parsed = extraerJSON(block.text);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  }
+  return [];
+}
+
+async function buscar() {
+  setState({ cargando: true });
+  try {
+    const raw = await llamarAPI(SYSTEM_PROMPT, 'Busca eventos culturales de los próximos 2-3 meses en Vigo, Galicia y norte de Portugal según mi perfil.');
+    const conId = raw.map(e => ({ ...e, id: hashId(e) }));
+    const nuevosIds = conId.filter(e => !state.prevIds.has(e.id)).map(e => e.id);
+    setState({ cargando:false, eventos:conId, novedadesSet:new Set(nuevosIds), prevIds:new Set(conId.map(e=>e.id)) });
+  } catch(err) {
+    console.error(err);
+    alert('Error al buscar eventos. Revisa la API key en DevTools → Network.');
+    setState({ cargando: false });
+  }
+}
+
+async function buscarLocal() {
+  setState({ cargandoLocal: true });
+  try {
+    const raw = await llamarAPI(SYSTEM_PROMPT_LOCAL, 'Busca todos los eventos en Vigo y alrededores para los próximos 7-14 días.');
+    setState({ cargandoLocal:false, eventosLocales:raw.map(e => ({ ...e, id:hashId(e) })) });
+  } catch(err) {
+    console.error(err);
+    alert('Error al buscar eventos locales. Revisa la API key.');
+    setState({ cargandoLocal: false });
+  }
+}
+
+function cargarMock() {
+  const conId = MOCK_EVENTOS.map(e => ({ ...e, id: hashId(e) }));
+  setState({ eventos:conId, novedadesSet:new Set(conId.map(e=>e.id)), prevIds:new Set(conId.map(e=>e.id)) });
+}
+
+// ─── RENDER: TARJETA ─────────────────────────────────────────────────────────
+
+function renderTarjeta(e, esNuevo, esLocal) {
+  const color = COLOR_AFINIDAD[e.afinidad] || '#6a8a7a';
+  const calUrl = googleCalUrl(e);
+  const fechaStr = e.fecha
+    ? new Date(e.fecha+'T00:00:00').toLocaleDateString('es-ES', {weekday:'short', year:'numeric', month:'long', day:'numeric'})
+    : '';
+  return `
+    <article class="tarjeta">
+      <div class="tarjeta-barra" style="background:${color}"></div>
+      <button class="tarjeta-quitar" data-action="quitar" data-id="${esc(e.id)}" data-local="${esLocal?'1':'0'}">×</button>
+      <div class="tarjeta-body">
+        <div class="tarjeta-meta">
+          <span style="font-size:16px">${ICONO_CAT[e.categoria]||'✨'}</span>
+          <span class="tarjeta-cat" style="color:${color}">${esc(e.categoria)}</span>
+          ${e.distancia && e.distancia !== 'local' ? `<span class="tarjeta-dist">· ${esc(ETIQUETA_DIST[e.distancia]||'')}</span>` : ''}
+          ${esNuevo ? '<span class="tarjeta-nuevo">NUEVO</span>' : ''}
+        </div>
+        <h3 class="tarjeta-nombre">${esc(e.nombre)}</h3>
+        <div class="tarjeta-info">
+          <div style="text-transform:capitalize">📅 ${fechaStr}${e.hora ? ' · '+esc(e.hora) : ''}</div>
+          <div>📍 ${esc(e.sala)}${e.sala && e.ciudad ? ' · ' : ''}${esc(e.ciudad)} ${BANDERA[e.pais]||''}</div>
+          ${e.precio ? `<div>🎟️ ${esc(e.precio)}</div>` : ''}
+        </div>
+        ${e.razon ? `<p class="tarjeta-razon" style="border-left:2px solid ${color}">${esc(e.razon)}</p>` : ''}
+        <div class="tarjeta-links">
+          ${e.enlace ? `<a href="${esc(e.enlace)}" target="_blank" rel="noopener noreferrer" class="tarjeta-link" style="color:${ACENTO}">Entradas / info →</a>` : ''}
+          ${calUrl ? `<a href="${esc(calUrl)}" target="_blank" rel="noopener noreferrer" class="tarjeta-link" style="color:#3367d6">📅 Añadir a Google Calendar</a>` : ''}
+        </div>
+      </div>
+    </article>`;
+}
+
+// ─── RENDER: CALENDARIO ───────────────────────────────────────────────────────
+
+function renderCalendario(visibles) {
+  const hoy = new Date();
+  const mesActual = hoy.getMonth();
+  const añoActual = hoy.getFullYear();
+  const primerDia = new Date(añoActual, mesActual, 1);
+  const diasDelMes = new Date(añoActual, mesActual + 1, 0).getDate();
+  const diasAnteriores = (primerDia.getDay() + 6) % 7;
+  const hoyStr = hoy.toISOString().split('T')[0];
+
+  const dias = [];
+  for (let i = -diasAnteriores; i < diasDelMes; i++) {
+    const f = new Date(primerDia);
+    f.setDate(f.getDate() + i);
+    dias.push({ fecha:f.toISOString().split('T')[0], dia:f.getDate(), mesActual:f.getMonth()===mesActual, esHoy:f.toISOString().split('T')[0]===hoyStr });
+  }
+
+  const celdas = dias.map(c => {
+    const evs = visibles.filter(e => e.fecha === c.fecha);
+    const clases = ['cal-day'];
+    if (!c.mesActual) clases.push('otro-mes');
+    if (c.esHoy) clases.push('es-hoy');
+    if (c.fecha === state.diaSel) clases.push('sel');
+    if (evs.length) clases.push('clickable');
+
+    const chips = evs.slice(0,2).map(e =>
+      `<div class="cal-chip" style="background:${COLOR_AFINIDAD[e.afinidad]||'#999'}"
+        data-action="sel-evento" data-id="${esc(e.id)}" data-fecha="${esc(c.fecha)}" title="${esc(e.nombre)}">
+        ${state.novedadesSet.has(e.id)?'🆕 ':''}${ICONO_CAT[e.categoria]||'✨'} ${esc(e.nombre)}
+      </div>`).join('');
+
+    return `<div class="${clases.join(' ')}" data-action="${evs.length?'sel-dia':''}" data-fecha="${esc(c.fecha)}">
+      <div class="cal-num ${c.esHoy?'hoy':''}">${c.dia}</div>
+      ${chips}
+      ${evs.length>2?`<div class="cal-mas">+${evs.length-2} más</div>`:''}
+    </div>`;
+  }).join('');
+
+  // Panel detalle
+  let detalle = '';
+  const detalleEvs = state.eventoSel
+    ? [state.eventoSel]
+    : state.diaSel
+      ? visibles.filter(e => e.fecha === state.diaSel)
+      : visibles.slice(0, 5);
+  const detalleTitulo = state.eventoSel ? 'Evento seleccionado' : state.diaSel ? `Eventos del ${formatearFecha(state.diaSel)}` : 'Próximos eventos';
+
+  if (detalleEvs.length) {
+    const cerrar = (state.diaSel || state.eventoSel)
+      ? `<button class="btn-cerrar" data-action="cerrar-detalle">cerrar ✕</button>` : '';
+    detalle = `
+      <div class="detalle">
+        <div class="detalle-header">
+          <span class="detalle-title">${detalleTitulo}</span>
+          ${cerrar}
+        </div>
+        <div class="detalle-lista">
+          ${detalleEvs.map(e => renderTarjeta(e, state.novedadesSet.has(e.id), false)).join('')}
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="cal-card">
+      <div class="cal-title">${MESES[mesActual]} ${añoActual}</div>
+      <div class="cal-grid">
+        ${DIAS_SEM.map(d=>`<div class="cal-dow">${d}</div>`).join('')}
+        ${celdas}
+      </div>
+      <div class="cal-legend">
+        ${['verde','amarillo','rojo'].map(a=>`
+          <span class="cal-legend-item">
+            <span class="cal-legend-dot" style="background:${COLOR_AFINIDAD[a]}"></span>
+            ${ETIQUETA_AFINIDAD[a]}
+          </span>`).join('')}
+      </div>
+      ${detalle}
+    </div>`;
+}
+
+// ─── RENDER: LISTA ────────────────────────────────────────────────────────────
+
+function renderLista(visibles) {
+  const ORDEN = { verde:0, amarillo:1, rojo:2 };
+  const ordenados = [...visibles].sort((a,b) => {
+    const da = ORDEN[a.afinidad]??3, db = ORDEN[b.afinidad]??3;
+    return da !== db ? da-db : (a.fecha||'9999').localeCompare(b.fecha||'9999');
+  });
+  if (!ordenados.length) return '<p class="italic">Ningún evento con estos filtros.</p>';
+  return `<div class="lista">${ordenados.map(e=>renderTarjeta(e, state.novedadesSet.has(e.id), false)).join('')}</div>`;
+}
+
+// ─── RENDER: AGENDA LOCAL ─────────────────────────────────────────────────────
+
+function renderLocal() {
+  if (state.cargandoLocal) return '<div class="empty"><p>Buscando eventos locales en Vigo...</p></div>';
+  if (!state.eventosLocales.length) return `
+    <div class="empty">
+      <p>📍 Agenda Local — Vigo y alrededores</p>
+      <p>Haz clic en "Buscar Agenda Local" para encontrar eventos de los próximos 7-14 días.</p>
+    </div>`;
+  const visibles = [...state.eventosLocales]
+    .filter(e => state.categoriaFilLocal.has(e.categoria))
+    .sort((a,b) => (a.fecha||'9999').localeCompare(b.fecha||'9999'));
+  if (!visibles.length) return '<p class="italic">Ningún evento con estos filtros.</p>';
+  return `<div class="lista">${visibles.map(e=>renderTarjeta({...e, afinidad:'local'}, false, true)).join('')}</div>`;
+}
+
+// ─── RENDER: CONTROLES ────────────────────────────────────────────────────────
+
+function renderControles() {
+  const tabs = [
+    { id:'calendario', label:'📅 Calendario', color:'#7a4a10' },
+    { id:'lista',      label:'📋 Lista',      color:'#7a4a10' },
+    { id:'local',      label:'📍 Agenda Local', color:'#4a7a5a' },
+  ];
+  const tabBtns = tabs.map(t => {
+    const act = state.vista === t.id;
+    const style = act ? `border:2px solid ${t.color};background:${t.color};color:#fff` : '';
+    return `<button class="btn" style="${style}" data-action="set-vista" data-vista="${t.id}">${t.label}</button>`;
+  }).join('');
+
+  const buscarBtn = state.vista !== 'local' ? `
+    <button class="btn btn-main" data-action="buscar" ${state.cargando?'disabled':''}>
+      ${state.cargando?'Buscando...':'🔄 Buscar'}
+    </button>
+    <button class="btn btn-mock" data-action="mock" title="Cargar 10 eventos de ejemplo sin usar la API">
+      📦 Cargar ejemplos
+    </button>` : `
+    <button class="btn btn-local" data-action="buscar-local" ${state.cargandoLocal?'disabled':''}>
+      ${state.cargandoLocal?'Buscando...':'📍 Buscar Agenda Local'}
+    </button>`;
+
+  const afinidadFila = state.vista !== 'local' ? `
+    <div class="fila">
+      <div class="fila-titulo">Afinidad</div>
+      <div class="fila-chips">
+        ${['verde','amarillo','rojo'].map(a => {
+          const act = state.afinidadFil.has(a);
+          const s = act ? `border-color:${COLOR_AFINIDAD[a]};background:${COLOR_AFINIDAD[a]};color:#fff` : '';
+          return `<button class="chip" style="${s}" data-action="toggle-afinidad" data-val="${a}">${ETIQUETA_AFINIDAD[a]}</button>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  const cats = state.vista==='local' ? CATEGORIAS_LOCAL : CATEGORIAS;
+  const filSet = state.vista==='local' ? state.categoriaFilLocal : state.categoriaFil;
+  const catAction = state.vista==='local' ? 'toggle-cat-local' : 'toggle-cat';
+
+  const categoriaFila = `
+    <div class="fila">
+      <div class="fila-titulo">Categoría</div>
+      <div class="fila-chips">
+        ${cats.map(c => {
+          const act = filSet.has(c);
+          const s = act ? `border-color:${ACENTO};background:${ACENTO};color:#fff` : '';
+          return `<button class="chip" style="${s}" data-action="${catAction}" data-val="${c}">${ICONO_CAT[c]||''} ${c}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  return `
+    <div class="panel">
+      <div class="api-row">
+        <span class="api-label">API Key</span>
+        <input type="password" id="api-key" class="api-input"
+          placeholder="sk-ant-..." value="${esc(localStorage.getItem('ac_apikey')||'')}" />
+        <span style="font-family:'DM Mono',monospace;font-size:10px;color:#b0a698">guardada en localStorage</span>
+      </div>
+      <div class="tabs">${tabBtns}${buscarBtn}</div>
+      ${afinidadFila}
+      ${categoriaFila}
+    </div>`;
+}
+
+// ─── RENDER PRINCIPAL ─────────────────────────────────────────────────────────
+
+function render() {
+  const visibles = state.eventos.filter(e => state.afinidadFil.has(e.afinidad) && state.categoriaFil.has(e.categoria));
+
+  const badge = state.novedadesSet.size > 0
+    ? `<div class="novedades">✨ ${state.novedadesSet.size} evento(s) nuevo(s) desde la última búsqueda</div>` : '';
+
+  let content;
+  if (state.cargando) {
+    content = '<div class="empty"><p>Buscando eventos...</p></div>';
+  } else if (state.vista === 'calendario' && state.eventos.length > 0) {
+    content = renderCalendario(visibles);
+  } else if (state.vista === 'lista' && state.eventos.length > 0) {
+    content = renderLista(visibles);
+  } else if (state.vista === 'local') {
+    content = renderLocal();
+  } else {
+    content = `<div class="empty"><p>Sin eventos aún. Haz clic en "🔄 Buscar" o en "📦 Cargar ejemplos".</p></div>`;
+  }
+
+  document.getElementById('root').innerHTML = `
+    <div class="wrapper">
+      <div class="header">
+        <h1>Agenda Cultural de Rodrigo</h1>
+        <p>Vigo, Galicia — Próximos eventos</p>
+      </div>
+      ${renderControles()}
+      ${badge}
+      ${content}
+    </div>`;
+}
+
+// ─── EVENTOS (delegación) ─────────────────────────────────────────────────────
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+
+  if (action === 'set-vista') {
+    setState({ vista:el.dataset.vista, diaSel:null, eventoSel:null });
+
+  } else if (action === 'buscar') {
+    buscar();
+
+  } else if (action === 'buscar-local') {
+    buscarLocal();
+
+  } else if (action === 'mock') {
+    cargarMock();
+
+  } else if (action === 'sel-dia') {
+    const fecha = el.dataset.fecha;
+    setState({ diaSel: state.diaSel === fecha ? null : fecha, eventoSel: null });
+
+  } else if (action === 'sel-evento') {
+    e.stopPropagation();
+    const id = el.dataset.id;
+    const evento = state.eventos.find(ev => ev.id === id);
+    setState({ eventoSel: state.eventoSel?.id === id ? null : evento, diaSel: el.dataset.fecha || state.diaSel });
+
+  } else if (action === 'quitar') {
+    const id = el.dataset.id;
+    if (el.dataset.local === '1') {
+      setState({ eventosLocales: state.eventosLocales.filter(ev => ev.id !== id) });
+    } else {
+      setState({ eventos: state.eventos.filter(ev => ev.id !== id) });
+    }
+
+  } else if (action === 'cerrar-detalle') {
+    setState({ diaSel:null, eventoSel:null });
+
+  } else if (action === 'toggle-afinidad') {
+    const next = new Set(state.afinidadFil);
+    next.has(el.dataset.val) ? next.delete(el.dataset.val) : next.add(el.dataset.val);
+    setState({ afinidadFil: next });
+
+  } else if (action === 'toggle-cat') {
+    const next = new Set(state.categoriaFil);
+    next.has(el.dataset.val) ? next.delete(el.dataset.val) : next.add(el.dataset.val);
+    setState({ categoriaFil: next });
+
+  } else if (action === 'toggle-cat-local') {
+    const next = new Set(state.categoriaFilLocal);
+    next.has(el.dataset.val) ? next.delete(el.dataset.val) : next.add(el.dataset.val);
+    setState({ categoriaFilLocal: next });
+  }
+});
+
+// Guardar API key al cambiar el input
+document.addEventListener('change', e => {
+  if (e.target.id === 'api-key') localStorage.setItem('ac_apikey', e.target.value);
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'api-key') localStorage.setItem('ac_apikey', e.target.value);
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+loadFromStorage();
+render();
+
+</script>
+</body>
+</html>
