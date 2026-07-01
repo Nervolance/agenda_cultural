@@ -89,11 +89,12 @@ export default function Controles({
     <div style={{ background: "#fff", borderRadius: 12, padding: 16, marginBottom: 24, boxShadow: "0 1px 3px rgba(60,50,40,0.06)" }}>
       {/* Tabs + buscar */}
       <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-        <TabBtn label="📅 Calendario" active={vista === "calendario"} onClick={() => setVista("calendario")} />
-        <TabBtn label="📋 Lista"      active={vista === "lista"}      onClick={() => setVista("lista")} />
-        <TabBtn label="📍 Agenda Local" active={vista === "local"}   onClick={() => setVista("local")} activeColor="#4a7a5a" />
+        <TabBtn label="📅 Calendario"   active={vista === "calendario"} onClick={() => setVista("calendario")} />
+        <TabBtn label="📋 Lista"        active={vista === "lista"}      onClick={() => setVista("lista")} />
+        <TabBtn label="🗺️ Mapa"        active={vista === "mapa"}       onClick={() => setVista("mapa")} />
+        <TabBtn label="📍 Agenda Local" active={vista === "local"}      onClick={() => setVista("local")} activeColor="#4a7a5a" />
 
-        {vista !== "local" ? (
+        {vista !== "local" && vista !== "mapa" ? (
           <button
             onClick={buscar} disabled={cargando}
             style={{
@@ -122,8 +123,8 @@ export default function Controles({
         )}
       </div>
 
-      {/* Filters — main search */}
-      {vista !== "local" && (
+      {/* Filters — main search (hidden in mapa and local views) */}
+      {vista !== "local" && vista !== "mapa" && (
         <>
           <Fila titulo="Afinidad">
             {["verde", "amarillo", "rojo"].map((a) => (

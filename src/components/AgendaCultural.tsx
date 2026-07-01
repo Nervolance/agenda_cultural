@@ -7,6 +7,7 @@ import Controles from "./Controles";
 import CalendarioView from "./CalendarioView";
 import ListaView from "./ListaView";
 import AgendaLocalView from "./AgendaLocalView";
+import MapaView from "./MapaView";
 
 const MODEL = "claude-sonnet-4-20250514";
 const API_URL = "/api/anthropic/v1/messages";
@@ -153,6 +154,16 @@ export default function AgendaCultural() {
 
         {vista === "lista" && eventos.length > 0 && (
           <ListaView visibles={visibles} novedadesSet={novedadesSet} quitarEvento={quitarEvento} />
+        )}
+
+        {vista === "mapa" && eventos.length > 0 && (
+          <MapaView visibles={visibles} />
+        )}
+
+        {vista === "mapa" && eventos.length === 0 && !cargando && (
+          <div style={{ textAlign: "center", color: "#9a9088", padding: "40px 20px" }}>
+            <p>No hay eventos aún. Haz clic en "Buscar" para empezar.</p>
+          </div>
         )}
 
         {vista === "local" && (
