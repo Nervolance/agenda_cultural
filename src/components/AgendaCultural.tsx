@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { Evento } from "../types";
 import { CREMA, CATEGORIAS, CATEGORIAS_LOCAL } from "../constants";
 import { SYSTEM_PROMPT, SYSTEM_PROMPT_LOCAL } from "../prompts";
@@ -35,13 +35,24 @@ async function llamarAPI(system: string, userMsg: string): Promise<Evento[]> {
   return [];
 }
 
+const LS_KEY = "ac_eventos";
+
+function cargarDeStorage(): Evento[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function AgendaCultural() {
   // --- Main search ---
-  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [eventos, setEventos] = useState<Evento[]>(cargarDeStorage);
   const [cargando, setCargando] = useState(false);
   const [novedades, setNovedades] = useState<string[]>([]);
   const [novedadesSet, setNovedadesSet] = useState<Set<string>>(new Set());
-  const eventosRef = useRef<Evento[]>([]);
+  const eventosRef = useRef<Evento[]>(cargarDeStorage());
 
   // --- View ---
   const [vista, setVista] = useState("calendario");
@@ -65,6 +76,7 @@ export default function AgendaCultural() {
       const prevIds = new Set(eventosRef.current.map((e) => e.id));
       const nuevosIds = conId.filter((e) => !prevIds.has(e.id)).map((e) => e.id);
       eventosRef.current = conId;
+      localStorage.setItem(LS_KEY, JSON.stringify(conId));
       setEventos(conId);
       setNovedades(nuevosIds);
       setNovedadesSet(new Set(nuevosIds));
@@ -89,10 +101,14 @@ export default function AgendaCultural() {
     }
   }, []);
 
-  useEffect(() => { buscar(); }, [buscar]);
+  // No auto-búsqueda al cargar — los eventos persisten en localStorage entre sesiones
 
   const visibles = eventos.filter((e) => afinidadFil.has(e.afinidad) && categoriaFil.has(e.categoria));
-  const quitarEvento = (id: string) => setEventos((prev) => prev.filter((e) => e.id !== id));
+  const quitarEvento = (id: string) => setEventos((prev) => {
+    const next = prev.filter((e) => e.id !== id);
+    localStorage.setItem(LS_KEY, JSON.stringify(next));
+    return next;
+  });
 
   return (
     <div style={{ minHeight: "100vh", background: CREMA, padding: 20, fontFamily: "system-ui" }}>
